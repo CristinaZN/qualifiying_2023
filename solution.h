@@ -34,17 +34,6 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
   std::vector<ec::Float> spectrumWindow(sizeSpectrum);
   std::vector<ec::Float> outputSpectrum(sizeSpectrum, std::numeric_limits<float>::lowest());
 
-  // Copy input signal to the HW
-  ec::VecHw& hwInputSingal= *ec::VecHw::getSingletonVecHw();
-  hwInputSingal.copyToHw(inputSignal,0,inputSignal.size(),0);
-
-  //Initialize 
-  // ec::VecHw& signalWindow = *ec::VecHw::getSingletonVecHw();
-  // ec::VecHw& signalFreqReal = *ec::VecHw::getSingletonVecHw();
-  // ec::VecHw& signalFreqImag = *ec::VecHw::getSingletonVecHw();
-  // ec::VecHw& spectrumWindow = *ec::VecHw::getSingletonVecHw();
-  // ec::VecHw& outputSpectrum = *ec::VecHw::getSingletonVecHw();
-
   size_t idxStartWin = 0;
   size_t step = WINDOW_SIZE;
 
@@ -85,7 +74,8 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
   vecA = valueVector(constant,WINDOW_SIZE);
   hwI.copyToHw(vecA,0,WINDOW_SIZE,0);
   for (size_t i = 0; i < WINDOW_SIZE / opt_num; i++){
-    hwI.add32(i*opt_num,WINDOW_SIZE+i*opt_num,WINDOW_SIZE+i*opt_num,opt_num);
+    hwI.acc32(i*opt_num,WINDOW_SIZE+i*opt_num,opt_num);
+    // hwI.add32(i*opt_num,WINDOW_SIZE+i*opt_num,WINDOW_SIZE+i*opt_num,opt_num);
   }
   // hwI.add32(0,WINDOW_SIZE,WINDOW_SIZE,WINDOW_SIZE);
   // hwI = [vector(0.42), result1, 0, result1]
