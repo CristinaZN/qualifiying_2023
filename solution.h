@@ -18,23 +18,6 @@ static constexpr size_t WINDOW_SIZE_2 = 1024 * 1024;
 static constexpr float log_10_window_size_2 = 6.02059991327962f;
 static constexpr float log_10_4 = 0.6020599913279623f;
 void compute_fourier_transform(const std::vector<ec::Float>& input, std::vector<ec::Float>& outputReal, std::vector<ec::Float>& outputImag);
-inline ec::Float
-fastlog2 (ec::Float x)
-{
-
-    union { ec::Float f; uint32_t i; } vx = { x };
-    union { uint32_t i; ec::Float f; } mx = { (vx.i & 0x007FFFFF) | (0x7e << 23) };
-    float y = vx.i;
-    y *= 1.0 / (1 << 23);
-
-    return y - 124.22544637f - 1.498030302f * mx.f - 1.72587999f / (0.3520887068f + mx.f);
-}
-
-inline ec::Float
-fastlog10 (ec::Float x)
-{
-    return 0.3010299956f * fastlog2 (x);
-}
 
 
 std::vector<ec::Float> valueVector(ec::Float number, size_t size){
@@ -71,7 +54,8 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
   // Initilize a vector I = [0 , 1 , 2 , 3, ...., WINDOW_SIZE - 1]
   std::vector<ec::Float> vecI(WINDOW_SIZE*4,0);
   for(size_t i = 0 ; i < WINDOW_SIZE; i++){
-    vecI[i] = i;}
+    vecI[i] = i;
+  }
   // Initialize a vector A = [a, a, ..., a]
   ec::Float constant = 2.0f * PI / (WINDOW_SIZE -1);//这一步应该没必要用vechw？
   std::vector<ec::Float> vecA = valueVector(constant,WINDOW_SIZE);
@@ -168,9 +152,9 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
     // hwI = [final_result,signalWindow[idxStartWin:idxStartWin+WinSize-1],0,result1]
     hwI.copyToHw(inputSignal,idxStartWin,WINDOW_SIZE,WINDOW_SIZE);
     // hwI = [final_result,signalWindow[idxStartWin:idxStartWin+WinSize-1],result,result1]
-    for(size_t i = 0 ; i < WINDOW_SIZE/opt_num ; i++){
-      hwI.mul32(i * opt_num, WINDOW_SIZE + i * opt_num, WINDOW_SIZE*2+i*opt_num,opt_num);
-
+    for(size_t i = 0 ; i < WINDOW_SIZE/opt_num ; i++) {
+        hwI.mul32(i * opt_num, WINDOW_SIZE + i * opt_num, WINDOW_SIZE * 2 + i * opt_num, opt_num);
+    }
     // hwI.mul32(0,WINDOW_SIZE,WINDOW_SIZE*2,WINDOW_SIZE);
     hwI.copyFromHw(signalWindow,WINDOW_SIZE*2,WINDOW_SIZE,0);
     compute_fourier_transform(signalWindow, signalFreqReal, signalFreqImag);
@@ -198,9 +182,9 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
       // find signalFreqReal[i] * signalFreqReal[i]
       vecHW2.mul32(signalFreqReal_index[0] + mul_index, signalFreqReal_index[0] + mul_index, used_index + mul_index);
     }
-      signalFreqReal_square_index[0] = used_index;
+    signalFreqReal_square_index[0] = used_index;
     used_index += vecHW_block_size_32 * 32;
-      signalFreqReal_square_index[1] = used_index;
+    signalFreqReal_square_index[1] = used_index;
 
     int signalFreqImag_square_index[2]; // store the index of Sig_Im^2 in HW_mem
     for (int mul_index = 0; mul_index < sizeSpectrum; mul_index += 32)
@@ -208,11 +192,11 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
       // find signalFreqImag[i] * signalFreqImag[i]
       vecHW2.mul32(signalFreqImag_index[0] + mul_index, signalFreqImag_index[0] + mul_index, used_index + mul_index);
     }
-      signalFreqImag_square_index[0] = used_index;
+    signalFreqImag_square_index[0] = used_index;
     used_index += vecHW_block_size_32 * 32;
-      signalFreqImag_square_index[1] = used_index;
+    signalFreqImag_square_index[1] = used_index;
 
-      int freqVal_vec_index[2]; // store the index of freqVal in HW_mem
+    int freqVal_vec_index[2]; // store the index of freqVal in HW_mem
     for (int add_index = 0; add_index < sizeSpectrum; add_index += 32)
     {
       vecHW2.add32(signalFreqReal_square_index[0] + add_index, signalFreqImag_square_index[0] + add_index, used_index+add_index);
