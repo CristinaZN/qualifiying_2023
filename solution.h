@@ -11,7 +11,8 @@
 
 static constexpr float OVERLAP_RATIO = 0.75;
 static constexpr size_t WINDOW_SIZE = 1024;
-
+size_t opt_num = 32;
+size_t cos_opt_num = 4;
 void compute_fourier_transform(const std::vector<ec::Float>& input, std::vector<ec::Float>& outputReal, std::vector<ec::Float>& outputImag);
 
 std::vector<ec::Float> valueVector(ec::Float number, size_t size){
@@ -61,25 +62,38 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
   hwI.copyToHw(vecA,0,WINDOW_SIZE,WINDOW_SIZE);
   // compute (ec::Float(I) * 2.0f * PI / (WINDOW_SIZE - 1)), copy to hwI[WinSize+1:2*WinSize]
   // hwI = [vecI, result, 0, 0]
-  hwI.mul32(0,WINDOW_SIZE,WINDOW_SIZE,WINDOW_SIZE);
+  for (size_t i = 0; i < WINDOW_SIZE / opt_num; i++){
+    hwI.mul32(i*opt_num,WINDOW_SIZE+i*opt_num,WINDOW_SIZE+i*opt_num,opt_num);
+  }
   // compute cos(ec::Float(I) * 2.0f * PI / (WINDOW_SIZE - 1)), copy to hwI[WinSize+1:2*WinSize]
   // hwI = [vecI, result, 0, 0]
-  hwI.cos4(WINDOW_SIZE,WINDOW_SIZE,WINDOW_SIZE);
+  for (size_t i = 0; i < WINDOW_SIZE / cos_opt_num; i++){
+    hwI.cos4(WINDOW_SIZE+i*cos_opt_num,WINDOW_SIZE+i*cos_opt_num,cos_opt_num);
+  }
   // compute - 0.5f * ec_cos(ec::Float(I) * 2.0f * PI / (WINDOW_SIZE - 1)), copy to hwI[WinSize+1:2*WinSize]
   // hwI = [vector(-0.5), result, 0, 0]
   constant = -0.5f;
   vecA = valueVector(constant,WINDOW_SIZE);
   hwI.copyToHw(vecA,0,WINDOW_SIZE,0);
-  hwI.mul32(0,WINDOW_SIZE,WINDOW_SIZE,WINDOW_SIZE);
+  for (size_t i = 0; i < WINDOW_SIZE / opt_num; i++){
+    hwI.mul32(i*opt_num,WINDOW_SIZE+i*opt_num,WINDOW_SIZE+i*opt_num,opt_num);
+  }
+  // hwI.mul32(0,WINDOW_SIZE,WINDOW_SIZE,WINDOW_SIZE);
   // compute 0.42f - 0.5f * ec_cos(ec::Float(I) * 2.0f * PI / (WINDOW_SIZE - 1)), copy to hwI[WinSize+1:2*WinSize]
   // hwI = [vector(0.42), result, 0, 0]
   constant = 0.42f;
   vecA = valueVector(constant,WINDOW_SIZE);
   hwI.copyToHw(vecA,0,WINDOW_SIZE,0);
-  hwI.add32(0,WINDOW_SIZE,WINDOW_SIZE,WINDOW_SIZE);
+  for (size_t i = 0; i < WINDOW_SIZE / opt_num; i++){
+    hwI.add32(i*opt_num,WINDOW_SIZE+i*opt_num,WINDOW_SIZE+i*opt_num,opt_num);
+  }
+  // hwI.add32(0,WINDOW_SIZE,WINDOW_SIZE,WINDOW_SIZE);
   // hwI = [vector(0.42), result1, 0, result1]
   // result1 = 0.42f - 0.5f * ec_cos(ec::Float(I) * 2.0f * PI / (WINDOW_SIZE - 1))
-  hwI.assign32(WINDOW_SIZE,WINDOW_SIZE*3,WINDOW_SIZE);
+  for (size_t i = 0 ; i< WINDOW_SIZE / opt_num; i++){
+    hwI.assign32(WINDOW_SIZE+i*opt_num,WINDOW_SIZE*3 + i * opt_num, opt_num);
+  }
+  // hwI.assign32(WINDOW_SIZE,WINDOW_SIZE*3,WINDOW_SIZE);
 
 
   constant = 4.0f * PI / (WINDOW_SIZE -1);
@@ -89,20 +103,32 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
   hwI.copyToHw(vecA,0,WINDOW_SIZE,WINDOW_SIZE);
   //compute (ec::Float(I) * 4.0f * PI / (WINDOW_SIZE - 1)), copy to hwI[WinSize+1:2*WinSize]
   // hwI = [vecI,result(vecI.*vecA),0,result1]
-  hwI.mul32(0,WINDOW_SIZE,WINDOW_SIZE,WINDOW_SIZE);
+  for (size_t i = 0; i < WINDOW_SIZE / opt_num; i++){
+    hwI.mul32(i*opt_num,WINDOW_SIZE+i*opt_num,WINDOW_SIZE+i*opt_num,opt_num);
+  }
+  // hwI.mul32(0,WINDOW_SIZE,WINDOW_SIZE,WINDOW_SIZE);
   //compute cos(ec::Float(I) * 4.0f * PI / (WINDOW_SIZE - 1)), copy to hwI[WinSize+1:2*WinSize]
   // hwI = [vecI,result(cos(vecI*vecA)),0,result1]
-  hwI.cos4(WINDOW_SIZE,WINDOW_SIZE,WINDOW_SIZE);
+  for (size_t i = 0; i < WINDOW_SIZE / cos_opt_num; i++){
+    hwI.cos4(WINDOW_SIZE+i*cos_opt_num,WINDOW_SIZE+i*cos_opt_num,cos_opt_num);
+  }
+  // hwI.cos4(WINDOW_SIZE,WINDOW_SIZE,WINDOW_SIZE);
   //compute 0.08f * ec_cos(ec::Float(I) * 4.0f * PI / (WINDOW_SIZE - 1)), copy to hwI[WinSize+1:2*WinSize]
   constant = 0.08f;
   vecA = valueVector(constant,WINDOW_SIZE);
   hwI.copyToHw(vecA,0,WINDOW_SIZE,0);
   // hwI = [vector(0.08),result(0.08*cos(vecI*vecA)),0,result1]
-  hwI.mul32(0,WINDOW_SIZE,WINDOW_SIZE,WINDOW_SIZE);
+  for (size_t i = 0; i < WINDOW_SIZE / opt_num; i++){
+    hwI.mul32(i*opt_num,WINDOW_SIZE+i*opt_num,WINDOW_SIZE+i*opt_num,opt_num);
+  }
+  // hwI.mul32(0,WINDOW_SIZE,WINDOW_SIZE,WINDOW_SIZE);
   // compute blackmanWinCoef + 0.08f * ec_cos(ec::Float(I) * 4.0f * PI / (WINDOW_SIZE - 1));
   // hwI = [final_result,result(0.08*cos(vecI*vecA)),0,result1]
   // final_result = result1 + 0.08f * ec_cos(ec::Float(I) * 4.0f * PI / (WINDOW_SIZE - 1))
-  hwI.add32(WINDOW_SIZE,WINDOW_SIZE*3,0,WINDOW_SIZE);
+  for (size_t i = 0; i < WINDOW_SIZE / opt_num; i++){
+    hwI.add32(WINDOW_SIZE + i * opt_num,WINDOW_SIZE * 3 + i * opt_num,i*opt_num,opt_num);
+  }
+  // hwI.add32(WINDOW_SIZE,WINDOW_SIZE*3,0,WINDOW_SIZE);
   // ec::Float blackmanWinCoef = 0.42f - 0.5f * ec_cos(ec::Float(I) * 2.0f * PI / (WINDOW_SIZE - 1));                                         
   // blackmanWinCoef = blackmanWinCoef + 0.08f * ec_cos(ec::Float(I) * 4.0f * PI / (WINDOW_SIZE - 1));
 
@@ -120,7 +146,10 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
     // hwI = [final_result,signalWindow[idxStartWin:idxStartWin+WinSize-1],0,result1]
     hwI.copyToHw(inputSignal,idxStartWin,WINDOW_SIZE,WINDOW_SIZE);
     // hwI = [final_result,signalWindow[idxStartWin:idxStartWin+WinSize-1],result,result1]
-    hwI.mul32(0,WINDOW_SIZE,WINDOW_SIZE*2,WINDOW_SIZE);
+    for(size_t i = 0 ; i < WINDOW_SIZE/opt_num ; i++){
+      hwI.mul32(i * opt_num, WINDOW_SIZE + i * opt_num, WINDOW_SIZE*2+i*opt_num,opt_num);
+    }
+    // hwI.mul32(0,WINDOW_SIZE,WINDOW_SIZE*2,WINDOW_SIZE);
     hwI.copyFromHw(signalWindow,WINDOW_SIZE*2,WINDOW_SIZE,0);
     compute_fourier_transform(signalWindow, signalFreqReal, signalFreqImag);
 
