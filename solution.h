@@ -182,7 +182,7 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
 
     compute_fourier_transform(signalWindow_dan, signalFreqReal, signalFreqImag);
 
-    int memory_used = WINDOW_SIZE*3;
+    int memory_used = WINDOW_SIZE;
 
 
     ec::VecHw &vecHW2 = *ec::VecHw::getSingletonVecHw();
