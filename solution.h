@@ -15,6 +15,23 @@ static constexpr size_t WINDOW_SIZE_2 = 1024 * 1024;
 static constexpr float log_10_window_size_2 = 6.02059991327962f;
 static constexpr float log_10_4 = 0.6020599913279623f;
 
+inline ec::Float
+fastlog2 (ec::Float x)
+{
+
+    union { ec::Float f; uint32_t i; } vx = { x };
+    union { uint32_t i; ec::Float f; } mx = { (vx.i & 0x007FFFFF) | (0x7e << 23) };
+    float y = vx.i;
+    y *= 1.0 / (1 << 23);
+
+    return y - 124.22544637f - 1.498030302f * mx.f - 1.72587999f / (0.3520887068f + mx.f);
+}
+
+inline ec::Float
+fastlog10 (ec::Float x)
+{
+    return 0.3010299956f * fastlog2 (x);
+}
 
 void compute_fourier_transform(const std::vector<ec::Float> &input, std::vector<ec::Float> &outputReal, std::vector<ec::Float> &outputImag);
 
@@ -22,11 +39,13 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float> &inputSignal)
 {
   const size_t numSamples = inputSignal.size();
   const size_t sizeSpectrum = (WINDOW_SIZE / 2) + 1;
-  const size_t vecHW_block_size_32 = sizeSpectrum / 32 + 1;
+  const size_t vecHW_block_size_32 = sizeSpectrum / 32 + 1; // vecHW calculation, 32 elements per block
 
   const size_t stepBetweenWins = static_cast<size_t>(ceil(WINDOW_SIZE * (1 - OVERLAP_RATIO)));
   const size_t numWins = (numSamples - WINDOW_SIZE) / stepBetweenWins + 1;
   const ec::Float PI = 3.14159265358979323846f;
+
+  // after reformulation of the expression, these params are used directly
     const float log_10_bias = 3.0f - log_10_window_size_2 + log_10_4;
     const float log_10_bias_times_10 = 10.0f * log_10_bias;
     const float log_10_bias_for_HT = 3.0f - log_10_window_size_2;
@@ -55,21 +74,21 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float> &inputSignal)
     ec::VecHw &vecHW2 = *ec::VecHw::getSingletonVecHw();
     vecHW2.resetMemTo0();
 
-    int used_index = 0;
+    int used_index = 0; // used for counting index
 
-    int signalFreqReal_index[2];
-    vecHW2.copyToHw(signalFreqReal, 0, WINDOW_SIZE, used_index);
+    int signalFreqReal_index[2]; // store the index of Sig_Re in HW_mem
+    vecHW2.copyToHw(signalFreqReal, 0, sizeSpectrum, used_index);
     signalFreqReal_index[0] = used_index;
-    used_index += WINDOW_SIZE;
+    used_index += sizeSpectrum;
     signalFreqReal_index[1] = used_index;
 
-    int signalFreqImag_index[2];
-    vecHW2.copyToHw(signalFreqImag, 0, WINDOW_SIZE, used_index);
+    int signalFreqImag_index[2];  // store the index of Sig_Im in HW_mem
+    vecHW2.copyToHw(signalFreqImag, 0, sizeSpectrum, used_index);
     signalFreqImag_index[0] = used_index;
-    used_index += WINDOW_SIZE;
+    used_index += sizeSpectrum;
     signalFreqImag_index[1] = used_index;
 
-    int signalFreqReal_square_index[2];
+    int signalFreqReal_square_index[2]; // store the index of Sig_Re^2 in HW_mem
     for (int mul_index = 0; mul_index < sizeSpectrum; mul_index += 32)
     {
       // find signalFreqReal[i] * signalFreqReal[i]
@@ -79,7 +98,7 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float> &inputSignal)
     used_index += vecHW_block_size_32 * 32;
       signalFreqReal_square_index[1] = used_index;
 
-    int signalFreqImag_square_index[2];
+    int signalFreqImag_square_index[2]; // store the index of Sig_Im^2 in HW_mem
     for (int mul_index = 0; mul_index < sizeSpectrum; mul_index += 32)
     {
       // find signalFreqImag[i] * signalFreqImag[i]
@@ -89,7 +108,7 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float> &inputSignal)
     used_index += vecHW_block_size_32 * 32;
       signalFreqImag_square_index[1] = used_index;
 
-      int freqVal_vec_index[2];
+      int freqVal_vec_index[2]; // store the index of freqVal in HW_mem
     for (int add_index = 0; add_index < sizeSpectrum; add_index += 32)
     {
       vecHW2.add32(signalFreqReal_square_index[0] + add_index, signalFreqImag_square_index[0] + add_index, used_index+add_index);
@@ -103,7 +122,7 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float> &inputSignal)
     std::vector<ec::Float> freqVal_vec(sizeSpectrum, ec::Float(0));
     vecHW2.copyFromHw(freqVal_vec, freqVal_vec_index[0], sizeSpectrum, 0);
 
-
+    // Head and Tail is not mul_by_2
       size_t i = 0; // i = 0
       freqVal_vec[0] = 10.0f * ec::ec_log10(freqVal_vec[0]) + log_10_bias_for_HT_times_10;
       outputSpectrum[0] = ec::ec_max(outputSpectrum[0], freqVal_vec[0]);
@@ -113,7 +132,7 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float> &inputSignal)
       outputSpectrum[512] = ec::ec_max(outputSpectrum[512], freqVal_vec[512]);
 
 
-
+    // cancel square_root and square
     for (i = 1; i < sizeSpectrum-1; i++)
     {
         freqVal_vec[i] = log_10_bias_times_10 + 10 * ec::ec_log10(freqVal_vec[i]);
@@ -151,3 +170,4 @@ void compute_fourier_transform(const std::vector<ec::Float> &input, std::vector<
 
   return;
 }
+
