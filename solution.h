@@ -48,6 +48,7 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
   std::vector<ec::Float> spectrumWindow(sizeSpectrum);
   std::vector<ec::Float> outputSpectrum(sizeSpectrum, std::numeric_limits<float>::lowest());
     ec::VecHw& hwInputSingal= *ec::VecHw::getSingletonVecHw();
+    hwInputSingal.resetMemTo0();
     hwInputSingal.copyToHw(inputSignal,0,inputSignal.size(),0);
   size_t idxStartWin = 0;
 
@@ -63,6 +64,7 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
     std::vector<ec::Float> vecA = valueVector(constant,WINDOW_SIZE);
 
     ec::VecHw& hwI = *ec::VecHw::getSingletonVecHw();
+    hwI.resetMemTo0();
     // hwI = [vecI, vecA, 0, 0]
     hwI.copyToHw(vecI,0,WINDOW_SIZE,0);
     hwI.copyToHw(vecA,0,WINDOW_SIZE,WINDOW_SIZE);
@@ -143,15 +145,16 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
   {
 
     
-     for (size_t I = 0; I < WINDOW_SIZE; I++)
-     {
-       ec::Float blackmanWinCoef = 0.42f - 0.5f * ec_cos(ec::Float(I) * 2.0f * PI / (WINDOW_SIZE - 1));
-       blackmanWinCoef = blackmanWinCoef + 0.08f * ec_cos(ec::Float(I) * 4.0f * PI / (WINDOW_SIZE - 1));
-       signalWindow[I] = inputSignal[I + idxStartWin] * blackmanWinCoef;
-     }
+//     for (size_t I = 0; I < WINDOW_SIZE; I++)
+//     {
+//       ec::Float blackmanWinCoef = 0.42f - 0.5f * ec_cos(ec::Float(I) * 2.0f * PI / (WINDOW_SIZE - 1));
+//       blackmanWinCoef = blackmanWinCoef + 0.08f * ec_cos(ec::Float(I) * 4.0f * PI / (WINDOW_SIZE - 1));
+//       signalWindow[I] = inputSignal[I + idxStartWin] * blackmanWinCoef;
+//     }
 
 
     // hwI = [final_result,signalWindow[idxStartWin:idxStartWin+WinSize-1],0,result1]
+
     hwI.copyToHw(inputSignal,idxStartWin,WINDOW_SIZE,WINDOW_SIZE);
     // hwI = [final_result,signalWindow[idxStartWin:idxStartWin+WinSize-1],result,result1]
     for(size_t i = 0 ; i < WINDOW_SIZE/opt_num ; i++) {
@@ -170,7 +173,7 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
 //    }
 
 
-    compute_fourier_transform(signalWindow, signalFreqReal, signalFreqImag);
+    compute_fourier_transform(signalWindow_dan, signalFreqReal, signalFreqImag);
 
     ec::VecHw &vecHW2 = *ec::VecHw::getSingletonVecHw();
     vecHW2.resetMemTo0();
@@ -238,6 +241,7 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
     {
         freqVal_vec[i] = log_10_bias_times_10 + 10 * ec::ec_log10(freqVal_vec[i]);
         outputSpectrum[i] = ec::ec_max(outputSpectrum[i], freqVal_vec[i]);
+
     }
 
 
