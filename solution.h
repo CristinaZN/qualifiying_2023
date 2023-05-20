@@ -46,9 +46,10 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
   std::vector<ec::Float> signalFreqReal(WINDOW_SIZE);
   std::vector<ec::Float> signalFreqImag(WINDOW_SIZE);
   std::vector<ec::Float> spectrumWindow(sizeSpectrum);
+
+
   std::vector<ec::Float> outputSpectrum(sizeSpectrum, std::numeric_limits<float>::lowest());
     ec::VecHw& hwInputSingal= *ec::VecHw::getSingletonVecHw();
-    hwInputSingal.resetMemTo0();
     hwInputSingal.copyToHw(inputSignal,0,inputSignal.size(),0);
   size_t idxStartWin = 0;
 
@@ -64,7 +65,7 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
     std::vector<ec::Float> vecA = valueVector(constant,WINDOW_SIZE);
 
     ec::VecHw& hwI = *ec::VecHw::getSingletonVecHw();
-    hwI.resetMemTo0();
+    hwI.resetMemTo0(0,WINDOW_SIZE*4);
     // hwI = [vecI, vecA, 0, 0]
     hwI.copyToHw(vecI,0,WINDOW_SIZE,0);
     hwI.copyToHw(vecA,0,WINDOW_SIZE,WINDOW_SIZE);
@@ -136,49 +137,33 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
     for (size_t i = 0; i < WINDOW_SIZE / opt_num; i++){
         hwI.add32(WINDOW_SIZE + i * opt_num,WINDOW_SIZE * 3 + i * opt_num,i*opt_num,opt_num);
     }
-    // hwI.add32(WINDOW_SIZE,WINDOW_SIZE*3,0,WINDOW_SIZE);
-    // ec::Float blackmanWinCoef = 0.42f - 0.5f * ec_cos(ec::Float(I) * 2.0f * PI / (WINDOW_SIZE - 1));
-    // blackmanWinCoef = blackmanWinCoef + 0.08f * ec_cos(ec::Float(I) * 4.0f * PI / (WINDOW_SIZE - 1));
 
 
   for (size_t J = 0; J < numWins; J++)
   {
 
-    
-//     for (size_t I = 0; I < WINDOW_SIZE; I++)
-//     {
-//       ec::Float blackmanWinCoef = 0.42f - 0.5f * ec_cos(ec::Float(I) * 2.0f * PI / (WINDOW_SIZE - 1));
-//       blackmanWinCoef = blackmanWinCoef + 0.08f * ec_cos(ec::Float(I) * 4.0f * PI / (WINDOW_SIZE - 1));
-//       signalWindow[I] = inputSignal[I + idxStartWin] * blackmanWinCoef;
-//     }
-
 
     // hwI = [final_result,signalWindow[idxStartWin:idxStartWin+WinSize-1],0,result1]
-
     hwI.copyToHw(inputSignal,idxStartWin,WINDOW_SIZE,WINDOW_SIZE);
     // hwI = [final_result,signalWindow[idxStartWin:idxStartWin+WinSize-1],result,result1]
     for(size_t i = 0 ; i < WINDOW_SIZE/opt_num ; i++) {
         hwI.mul32(i * opt_num, WINDOW_SIZE + i * opt_num, WINDOW_SIZE * 2 + i * opt_num, opt_num);
     }
-    // hwI.mul32(0,WINDOW_SIZE,WINDOW_SIZE*2,WINDOW_SIZE);
-      std::vector<ec::Float> signalWindow_dan(WINDOW_SIZE);
-    hwI.copyFromHw(signalWindow_dan,WINDOW_SIZE*2,WINDOW_SIZE,0);
-
-//    for(size_t i = 0; i < WINDOW_SIZE; i++){
-//        if(signalWindow_dan[i] - signalWindow[i] > ec::Float(0.000001f)
-//        || signalWindow_dan[i] - signalWindow[i] < ec::Float(0.000001f)) {
-//            std::cout << "signalWindow_dan[i] != signalWindow[i] at: " << i << std::endl;
-//
-//        }
-//    }
 
 
-    compute_fourier_transform(signalWindow_dan, signalFreqReal, signalFreqImag);
+
+
+    hwI.copyFromHw(signalWindow,WINDOW_SIZE*2,WINDOW_SIZE,0);
+
+    compute_fourier_transform(signalWindow, signalFreqReal, signalFreqImag);
+
+    int memory_used = WINDOW_SIZE;
+
 
     ec::VecHw &vecHW2 = *ec::VecHw::getSingletonVecHw();
-    vecHW2.resetMemTo0();
+    // vecHW2.resetMemTo0();
 
-    int used_index = 0; // used for counting index
+    int used_index = WINDOW_SIZE; // used for counting index
 
     int signalFreqReal_index[2]; // store the index of Sig_Re in HW_mem
     vecHW2.copyToHw(signalFreqReal, 0, sizeSpectrum, used_index);
@@ -191,6 +176,7 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
     signalFreqImag_index[0] = used_index;
     used_index += sizeSpectrum;
     signalFreqImag_index[1] = used_index;
+
 
     int signalFreqReal_square_index[2]; // store the index of Sig_Re^2 in HW_mem
     for (int mul_index = 0; mul_index < sizeSpectrum; mul_index += 32)
@@ -208,6 +194,8 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
       // find signalFreqImag[i] * signalFreqImag[i]
       vecHW2.mul32(signalFreqImag_index[0] + mul_index, signalFreqImag_index[0] + mul_index, used_index + mul_index);
     }
+
+
     signalFreqImag_square_index[0] = used_index;
     used_index += vecHW_block_size_32 * 32;
     signalFreqImag_square_index[1] = used_index;
@@ -241,11 +229,11 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float>& inputSignal)
     {
         freqVal_vec[i] = log_10_bias_times_10 + 10 * ec::ec_log10(freqVal_vec[i]);
         outputSpectrum[i] = ec::ec_max(outputSpectrum[i], freqVal_vec[i]);
-
     }
 
 
     idxStartWin += stepBetweenWins;
+
   }
 
   return outputSpectrum;
