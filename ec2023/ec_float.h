@@ -79,13 +79,16 @@ namespace ec
     friend Float ec_log10(Float input);
     friend Float ec_pow(Float base, Float exp);
     
-
+  inline float toFloat() const noexcept
+  {
+    return m_value;
+  }
   private:
 
    
     float m_value = 0.0f;
     
-    float toFloat()const  noexcept;
+    // float toFloat()const  noexcept;
   };
 
 
@@ -319,8 +322,8 @@ namespace ec
   }
 
 
-  inline float Float::toFloat() const noexcept
-  {
-    return m_value;
-  }
+  // inline float Float::toFloat() const noexcept
+  // {
+  //   return m_value;
+  // }
 } // namespace ec

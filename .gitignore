@@ -1,1 +1,16 @@
 ./build/*
+_build/bin/analyze
+_build/bin/analyze1
+_build/bin/analyze2
+_build/bin/analyze3
+_build/bin/analyze4
+_build/bin/analyze5
+_build/bin/EC2023
+_build/bin/scores.json
+_build/CMakeFiles/EC2023.dir/main.cpp.o
+ec2023/ec_float.h
+solution copy 2.h
+_build/bin/EC2023
+_build/bin/scores.json
+_build/CMakeFiles/EC2023.dir/main.cpp.o
+ec2023/ec_float.h
