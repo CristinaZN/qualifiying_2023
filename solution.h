@@ -451,30 +451,71 @@ void FFT_HW(std::vector<ec::Float> &outputReal, std::vector<ec::Float> &outputIm
 //             outputImag_HW[j] = outputImag_HW[j] + imag[j];
 //         }
 
-        //  1.  find    a = outputReal_HW_m[j] * Wn_new_re[i][j]    {1280,             1280 + 256 * 1},
-        //              b = outputImag_HW_m[j] * Wn_new_im[i][j]    {1280 + 256 * 1,   1280 + 256 * 2},
-        //              real[0:256] = a - b                         {1024,             1024 + 256}
+        //  1.  find    a = outputReal_HW_m[j] * Wn_new_re[i][j]    {1280,             1536},
+        //              b = outputImag_HW_m[j] * Wn_new_im[i][j]    {1536,             1792},
+        //              real[0:256] = a - b                         {1024,             1280}
 
-        for(int index = 0; index < 256; index++){
+        for(int index = 0; index < 256; index+=32){
             vecHW_FFT.mul32(2048+index, 0+index, 1280+index, 32); // a
             vecHW_FFT.mul32(2560+index, 512+index, 1536+index, 32); // b
             vecHW_FFT.mul32(1536+index, 1792+index, 1536+index, 32); // -b
-            vecHW_FFT.add32(1280 + index, 1536+index, 1024+index, 32); // real[0:256]
+            vecHW_FFT.add32(1280 + index, 1536+index, 1024+index, 32); // real[0:256] at [1024, 1280]
         }
 
         //  2.  find    a = outputReal_HW_m[j] * Wn_new_im[i][j]    {1280,             1280 + 256 * 1}, // a
         //              b = outputImag_HW_m[j] * Wn_new_re[i][j]    {1280 + 256 * 1,   1280 + 256 * 2}, // b
-        //              imag[0:256] = a + b                         {1024 + 256,       1024 + 256 * 2}
-        for(int index = 0; index < 256; index++){
-            vecHW_FFT.mul32(2048+index, 0+index, 1280+index, 32); // a
-            vecHW_FFT.mul32(2560+index, 512+index, (1280 + 256 * 1)+index, 32); // b
-            vecHW_FFT.add32(1280+index, 1536+index, 1280+index, 32); // real[0:256]
+        //              imag[0:256] = a + b                         {1280,       1536}
+        for(int index = 0; index < 256; index+=32){
+            vecHW_FFT.mul32(2048+index, 512+index, 1280+index, 32); // a
+            vecHW_FFT.mul32(2560+index, 0+index, 1536+index, 32); // b
+            vecHW_FFT.add32(1280+index, 1536+index, 1280+index, 32); // imag[0:256] at [1280, 1536]
+        }
+
+        //  3.  find    outputReal_HW_m[j] = outputReal_HW[j] - real[j];
+        //              outputReal_HW[j] = outputReal_HW[j] + real[j];
+        //              outputImag_HW_m[j] = outputImag_HW[j] - imag[j];
+        //              outputImag_HW[j] = outputImag_HW[j] + imag[j];
+        for(int index = 0; index < 256; index+=32){
+            vecHW_FFT.mul32(1024+index, 1792+index, 1536+index, 32); // get -real
+            vecHW_FFT.add32(3072+index, 1536+index, 2048+index, 32); // outputReal_HW[j] - real[j]
+            vecHW_FFT.add32(3072+index, 1024+index, 3072+index, 32); // outputReal_HW[j] + real[j]
+            vecHW_FFT.mul32(1280+index,1792+index,1536+index,32);  // get -imag
+            vecHW_FFT.add32(3584+index, 1536+index, 2560+index, 32);
+            vecHW_FFT.add32(3584+index, 1280+index, 3584+index, 32);
+        }
+
+        // 1，
+        for(int index = 0; index < 256; index+=32){
+            vecHW_FFT.mul32(2048+index+256, 0+index+256, 1280+index, 32); // a
+            vecHW_FFT.mul32(2560+index+256, 512+index+256, 1536+index, 32); // b
+            vecHW_FFT.mul32(1536+index, 1792+index, 1536+index, 32); // -b
+            vecHW_FFT.add32(1280 + index, 1536+index, 1024+index, 32); // real[256:512] at [1024, 1280]
+        }
+        //2.
+        for(int index = 0; index < 256; index+=32){
+            vecHW_FFT.mul32(2048+index+256, 512+index+256, 1280+index, 32); // a
+            vecHW_FFT.mul32(2560+index+256, 0+index+256, 1536+index, 32); // b
+            vecHW_FFT.add32(1280+index, 1536+index, 1280+index, 32); // imag[256：512] at [1280, 1536]
+        }
+        //3.
+        for(int index = 0; index < 256; index+=32){
+            vecHW_FFT.mul32(1024+index, 1792+index, 1536+index, 32); // get -real
+            vecHW_FFT.add32(3072+index+256, 1536+index, 2048+index+256, 32); // outputReal_HW[j] - real[j]
+            vecHW_FFT.add32(3072+index+256, 1024+index, 3072+index+256, 32); // outputReal_HW[j] + real[j]
+            vecHW_FFT.mul32(1280+index,1792+index,1536+index,32);  // get -imag
+            vecHW_FFT.add32(3584+index+256, 1536+index, 2560+index+256, 32); // outputImag_HW[j] - imag[j];
+            vecHW_FFT.add32(3584+index+256, 1280+index, 3584+index+256, 32); // outputImag_HW[j] + imag[j];
         }
 
 
 
 
         // copy from HW
+        vecHW_FFT.copyFromHw(outputReal_HW_m, 2048, 512, 0);
+        vecHW_FFT.copyFromHw(outputImag_HW_m, 2560, 512, 0);
+        vecHW_FFT.copyFromHw(outputReal_HW, 3072, 512, 0);
+        vecHW_FFT.copyFromHw(outputImag_HW, 3584, 512, 0);
+
         for (j = 0; j < 512; j++)
         {
             outputReal[new_index[i][j] + m] = outputReal_HW_m[j];
