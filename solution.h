@@ -392,14 +392,15 @@ void FFT_HW(std::vector<ec::Float> &outputReal, std::vector<ec::Float> &outputIm
     int i, j;
     int m = 1;
     ec::VecHw &vecHW_FFT = *ec::VecHw::getSingletonVecHw();
+//    vecHW_FFT.resetMemTo0();
     for (size_t J = 0; J < 1024; ++J)
     {
         outputImag[J] = 0;
     }
 
 
-    std::vector<ec::Float> real(512, 0);
-    std::vector<ec::Float> imag(512, 0);
+//    std::vector<ec::Float> real(512, 0);
+//    std::vector<ec::Float> imag(512, 0);
 
     std::vector<ec::Float> outputReal_HW_m(512, 0);
     std::vector<ec::Float> outputImag_HW_m(512, 0);
@@ -408,6 +409,7 @@ void FFT_HW(std::vector<ec::Float> &outputReal, std::vector<ec::Float> &outputIm
     std::vector<ec::Float> outputImag_HW(512, 0);
 
     std::vector<ec::Float> minus_1(256, -1);
+    vecHW_FFT.copyToHw(minus_1, 0, 256, 1792);
 
     for (i = 0; i < level; i++)
     {
@@ -421,8 +423,8 @@ void FFT_HW(std::vector<ec::Float> &outputReal, std::vector<ec::Float> &outputIm
         }
         vecHW_FFT.copyToHw(Wn_new_re[i], 0, 512, 0);
         vecHW_FFT.copyToHw(Wn_new_im[i], 0, 512, 512);
-        vecHW_FFT.resetMemTo0(1024, 768);  //buffer for calculating real and imag
-        vecHW_FFT.copyToHw(minus_1, 0, 256, 1792);
+//        vecHW_FFT.resetMemTo0(1024, 768);  //buffer for calculating real and imag
+//        vecHW_FFT.copyToHw(minus_1, 0, 256, 1792);
         vecHW_FFT.copyToHw(outputReal_HW_m, 0, 512, 2048);
         vecHW_FFT.copyToHw(outputImag_HW_m, 0, 512, 2560);
         vecHW_FFT.copyToHw(outputReal_HW, 0, 512, 3072);
