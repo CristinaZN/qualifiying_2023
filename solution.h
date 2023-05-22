@@ -18,7 +18,7 @@ static constexpr size_t WINDOW_SIZE_2 = WINDOW_SIZE * WINDOW_SIZE;
 static constexpr float log_10_window_size_2 = 6.02059991327962f;
 static constexpr float log_10_4 = 0.6020599913279623f;
 void compute_fourier_transform(const std::vector<ec::Float> &input, std::vector<ec::Float> &outputReal, std::vector<ec::Float> &outputImag);
-void compute_fourier_transform_HW(std::vector<ec::Float> &outputReal, std::vector<ec::Float> &outputImag);
+void FFT(std::vector<ec::Float> &outputReal, std::vector<ec::Float> &outputImag);
 void FFT_HW(std::vector<ec::Float> &outputReal, std::vector<ec::Float> &outputImag);
 unsigned int bitReverse(unsigned int x, int log2n)
 {
@@ -155,32 +155,38 @@ std::vector<ec::Float> process_signal(const std::vector<ec::Float> &inputSignal)
     }
 
 
-    //signalFreqReal.size() = 1024;
-    //signalFreqImag.size() = 1024;
-    FFT_HW(signalFreqReal, signalFreqImag);
-    //signalFreqReal is stored at [0    1024]
-    //signalFreqImag is stored at [1024 2048]
+    
+    // FFT(signalFreqReal, signalFreqImag);
 
+    // int used_index = 0; // used for counting index
 
-    int used_index = WINDOW_SIZE; // used for counting index
-
-    int signalFreqReal_index[2]; // store the index of Sig_Re in HW_mem
+    // int signalFreqReal_index[2]; // store the index of Sig_Re in HW_mem
     // hwI.copyToHw(signalFreqReal, 0, sizeSpectrum, used_index);
     // signalFreqReal_index[0] = used_index;
     // used_index += sizeSpectrum;
     // signalFreqReal_index[1] = used_index;
 
-    int signalFreqImag_index[2]; // store the index of Sig_Im in HW_mem
+    // int signalFreqImag_index[2]; // store the index of Sig_Im in HW_mem
     // hwI.copyToHw(signalFreqImag, 0, sizeSpectrum, used_index);
     // signalFreqImag_index[0] = used_index;
     // used_index += sizeSpectrum;
     // signalFreqImag_index[1] = used_index;
 
+    //signalFreqReal.size() = 1024;
+    //signalFreqImag.size() = 1024;
+    //signalFreqReal is stored at [0    1024]
+    //signalFreqImag is stored at [1024 2048]
+    FFT_HW(signalFreqReal, signalFreqImag);
+    int signalFreqImag_index[2]; // store the index of Sig_Im in HW_mem
+    int signalFreqReal_index[2]; // store the index of Sig_Re in HW_mem
+    
     signalFreqReal_index[0] = 0;
     signalFreqReal_index[1] = sizeSpectrum;
     signalFreqImag_index[0] = sizeSpectrum;
     signalFreqImag_index[1] = sizeSpectrum * 2;
-    used_index = sizeSpectrum * 2;
+    int used_index = sizeSpectrum * 2;
+    
+    
     int signalFreqReal_square_index[2]; // store the index of Sig_Re^2 in HW_mem
     for (int mul_index = 0; mul_index < sizeSpectrum; mul_index += 32)
     {
@@ -511,7 +517,7 @@ void FFT_HW(std::vector<ec::Float> &outputReal, std::vector<ec::Float> &outputIm
   return;
 }
 
-void compute_fourier_transform_HW(std::vector<ec::Float> &outputReal, std::vector<ec::Float> &outputImag)
+void FFT(std::vector<ec::Float> &outputReal, std::vector<ec::Float> &outputImag)
 {
 
   size_t inputSize = WINDOW_SIZE;
